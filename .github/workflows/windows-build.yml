@@ -27,16 +27,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
 
       - name: Install Qt
-        shell: pwsh
-        run: |
-          python -m pip install --upgrade "aqtinstall>=3.1,<4"
-          python -m aqt install-qt windows desktop $env:QT_VERSION win64_msvc2022_64 -O "$env:RUNNER_TEMP\Qt"
-          $qtRoot = "$env:RUNNER_TEMP\Qt\$env:QT_VERSION\msvc2022_64"
-          "CMAKE_PREFIX_PATH=$qtRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "$qtRoot\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          cache: true
 
       - name: Configure CMake
         shell: pwsh
@@ -45,7 +45,6 @@ jobs:
           -G "Visual Studio 17 2022"
           -A x64
           -DCMAKE_BUILD_TYPE="$env:BUILD_TYPE"
-          -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH"
 
       - name: Build
         shell: pwsh
