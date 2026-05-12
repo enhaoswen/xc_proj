@@ -1,0 +1,3 @@
+module XingChenProj
+singleton Theme 1.0 Theme.qml
+Outline 1.0 Outline.qml

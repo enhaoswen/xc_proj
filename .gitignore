@@ -1,0 +1,9 @@
+build/
+package/
+*.zip
+*.user
+*.autosave
+.DS_Store
+Thumbs.db
+.agents/
+.codex/
