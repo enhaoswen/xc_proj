@@ -29,6 +29,8 @@ public:
     enum SortMode {
         NameAscending = 0,
         NameDescending,
+        ClassAscending,
+        ClassDescending,
         ScoreAscending,
         ScoreDescending
     };
@@ -49,6 +51,12 @@ public:
                                 const QString &className,
                                 const QString &studentId,
                                 int score);
+    Q_INVOKABLE bool updateStudent(int row,
+                                   const QString &name,
+                                   const QString &className,
+                                   int score,
+                                   const QString &reason);
+    Q_INVOKABLE bool deleteStudent(int row);
     Q_INVOKABLE bool updateScore(int row, int score, const QString &reason);
     Q_INVOKABLE bool adjustScore(int row, int delta, const QString &reason);
 

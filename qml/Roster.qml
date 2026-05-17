@@ -6,21 +6,23 @@ import XingChenProj
 Item {
     id: rosterPage
 
-    property int editingScoreRow: -1
-    property string editingScoreName: ""
+    property int editingStudentRow: -1
+    property string editingStudentName: ""
     property string addStudentError: ""
-    property string editScoreError: ""
-    readonly property var headerTitles: ["Name", "Class", "Student ID", "Score"]
-    readonly property var sortLabels: ["Name A-Z", "Name Z-A", "Score Low-High", "Score High-Low"]
-    readonly property real tableWidth: Math.max(listView.width, 680)
+    property string editStudentError: ""
+    readonly property var headerTitles: ["Name", "Grade", "Student ID", "Score", "Edit"]
+    readonly property var sortLabels: ["Name A-Z", "Name Z-A", "Grade A-Z", "Grade Z-A", "Score Low-High", "Score High-Low"]
+    readonly property int textColumnInset: 14
+    readonly property real tableWidth: Math.max(listView.width, 700)
 
     function columnWidth(column) {
         const widths = [
-            Math.round(tableWidth * 0.30),
+            Math.round(tableWidth * 0.33),
+            Math.round(tableWidth * 0.16),
             Math.round(tableWidth * 0.29),
-            Math.round(tableWidth * 0.25)
+            Math.round(tableWidth * 0.10)
         ]
-        widths.push(tableWidth - widths[0] - widths[1] - widths[2])
+        widths.push(tableWidth - widths[0] - widths[1] - widths[2] - widths[3])
         return widths[column]
     }
 
@@ -60,27 +62,41 @@ Item {
         }
     }
 
-    function openScoreEditor(row, name, score, reason) {
-        editingScoreRow = row
-        editingScoreName = name
-        editScoreField.text = "0"
-        reasonField.text = reason
-        editScoreError = ""
-        scoreEditPopup.open()
-        editScoreField.forceActiveFocus()
+    function openStudentEditor(row, name, className, score, reason) {
+        editingStudentRow = row
+        editingStudentName = name
+        editStudentNameField.text = name
+        editStudentClassField.text = className
+        editStudentScoreField.text = String(score)
+        editStudentReasonField.text = reason
+        editStudentError = ""
+        studentEditPopup.open()
+        editStudentNameField.forceActiveFocus()
     }
 
-    function submitScoreEdit() {
-        const parsedScore = parseScore(editScoreField.text, false)
+    function submitStudentEdit() {
+        const parsedScore = parseScore(editStudentScoreField.text, false)
         if (!parsedScore.valid) {
-            editScoreError = "Points must be an integer."
+            editStudentError = "Score must be an integer."
             return
         }
 
-        if (studentModel.adjustScore(editingScoreRow, parsedScore.score, reasonField.text)) {
-            scoreEditPopup.close()
+        if (studentModel.updateStudent(editingStudentRow,
+                                       editStudentNameField.text,
+                                       editStudentClassField.text,
+                                       parsedScore.score,
+                                       editStudentReasonField.text)) {
+            studentEditPopup.close()
         } else {
-            editScoreError = studentModel.lastError
+            editStudentError = studentModel.lastError
+        }
+    }
+
+    function deleteEditingStudent() {
+        if (studentModel.deleteStudent(editingStudentRow)) {
+            studentEditPopup.close()
+        } else {
+            editStudentError = studentModel.lastError
         }
     }
 
@@ -139,7 +155,7 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: 15
                     onClicked: {
-                        clearAddStudentForm()
+                        rosterPage.clearAddStudentForm()
                         addStudentPopup.open()
                         nameField.forceActiveFocus()
                     }
@@ -245,9 +261,9 @@ Item {
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: index === 3 ? 0 : 18
-                                    anchors.horizontalCenter: index === 3 ? parent.horizontalCenter : undefined
+                                    anchors.left: index >= 3 ? undefined : parent.left
+                                    anchors.leftMargin: index >= 3 ? 0 : rosterPage.textColumnInset
+                                    anchors.horizontalCenter: index >= 3 ? parent.horizontalCenter : undefined
                                     text: modelData
                                     color: Theme.secondaryTextColor
                                     font.family: Theme.fontFamily
@@ -306,8 +322,8 @@ Item {
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
                                         anchors.right: parent.right
-                                        anchors.leftMargin: 18
-                                        anchors.rightMargin: 18
+                                        anchors.leftMargin: rosterPage.textColumnInset
+                                        anchors.rightMargin: rosterPage.textColumnInset
                                         text: rowDelegate.name
                                         color: Theme.textColor
                                         font.family: Theme.fontFamily
@@ -324,8 +340,8 @@ Item {
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
                                         anchors.right: parent.right
-                                        anchors.leftMargin: 18
-                                        anchors.rightMargin: 18
+                                        anchors.leftMargin: rosterPage.textColumnInset
+                                        anchors.rightMargin: rosterPage.textColumnInset
                                         text: rowDelegate.className
                                         color: Theme.textColor
                                         font.family: Theme.fontFamily
@@ -342,8 +358,8 @@ Item {
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
                                         anchors.right: parent.right
-                                        anchors.leftMargin: 18
-                                        anchors.rightMargin: 18
+                                        anchors.leftMargin: rosterPage.textColumnInset
+                                        anchors.rightMargin: rosterPage.textColumnInset
                                         text: rowDelegate.studentId
                                         color: Theme.textColor
                                         font.family: Theme.fontFamily
@@ -356,32 +372,50 @@ Item {
                                     width: rosterPage.columnWidth(3)
                                     height: parent.height
 
-                                    Button {
-                                        id: scoreButton
+                                    Text {
                                         anchors.centerIn: parent
                                         text: String(rowDelegate.score)
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 16
+                                        color: Theme.textColor
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                }
+
+                                Item {
+                                    width: rosterPage.columnWidth(4)
+                                    height: parent.height
+
+                                    Button {
+                                        id: editStudentButton
+                                        anchors.centerIn: parent
+                                        width: 38
+                                        height: 34
+                                        text: "..."
                                         hoverEnabled: true
                                         font.family: Theme.fontFamily
                                         font.pixelSize: 16
-                                        onClicked: rosterPage.openScoreEditor(rowDelegate.index,
-                                                                              rowDelegate.name,
-                                                                              rowDelegate.score,
-                                                                              rowDelegate.scoreReason)
+                                        onClicked: rosterPage.openStudentEditor(rowDelegate.index,
+                                                                                rowDelegate.name,
+                                                                                rowDelegate.className,
+                                                                                rowDelegate.score,
+                                                                                rowDelegate.scoreReason)
 
                                         contentItem: Text {
-                                            text: scoreButton.text
-                                            color: Theme.textColor
-                                            font: scoreButton.font
+                                            text: editStudentButton.text
+                                            color: Theme.mutedButtonTextColor
+                                            font: editStudentButton.font
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                         }
 
                                         background: Rectangle {
-                                            implicitWidth: 74
-                                            implicitHeight: 36
                                             radius: 8
-                                            color: rowDelegate.score < 0 ? Theme.negativeScoreBgColor : Theme.positiveScoreBgColor
-                                            border.width: scoreButton.hovered || scoreButton.activeFocus ? 1 : 0
+                                            color: editStudentButton.hovered || editStudentButton.activeFocus
+                                                   ? Theme.mutedButtonColor
+                                                   : "transparent"
+                                            border.width: editStudentButton.activeFocus ? 1 : 0
                                             border.color: Theme.focusBorderColor
                                         }
                                     }
@@ -412,7 +446,7 @@ Item {
         height: implicitHeight
         padding: 0
         closePolicy: Popup.CloseOnEscape
-        onClosed: clearAddStudentForm()
+        onClosed: rosterPage.clearAddStudentForm()
 
         Overlay.modal: Rectangle {
             color: Theme.overlayColor
@@ -489,7 +523,7 @@ Item {
                 TextField {
                     id: classField
                     Layout.fillWidth: true
-                    placeholderText: "Class Name"
+                    placeholderText: "Grade"
                     font.family: Theme.fontFamily
                     font.pixelSize: 16
                     color: Theme.textColor
@@ -612,7 +646,7 @@ Item {
     }
 
     Popup {
-        id: scoreEditPopup
+        id: studentEditPopup
         anchors.centerIn: Overlay.overlay
         modal: true
         focus: true
@@ -621,9 +655,9 @@ Item {
         padding: 0
         closePolicy: Popup.CloseOnEscape
         onClosed: {
-            editingScoreRow = -1
-            editingScoreName = ""
-            editScoreError = ""
+            rosterPage.editingStudentRow = -1
+            rosterPage.editingStudentName = ""
+            rosterPage.editStudentError = ""
         }
 
         Overlay.modal: Rectangle {
@@ -663,7 +697,7 @@ Item {
                     spacing: 4
 
                     Text {
-                        text: "Adjust Score"
+                        text: "Edit Student"
                         color: Theme.textColor
                         font.family: Theme.fontFamily
                         font.pixelSize: 26
@@ -671,7 +705,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: editingScoreName
+                        text: rosterPage.editingStudentName
                         color: Theme.secondaryTextColor
                         font.family: Theme.fontFamily
                         font.pixelSize: 14
@@ -688,9 +722,39 @@ Item {
                 Layout.bottomMargin: 22
 
                 TextField {
-                    id: editScoreField
+                    id: editStudentNameField
                     Layout.fillWidth: true
-                    placeholderText: "Points (+/-)"
+                    placeholderText: "Student Name"
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                    color: Theme.textColor
+                    background: Rectangle {
+                        radius: 10
+                        color: Theme.inputBgColor
+                        border.width: editStudentNameField.activeFocus ? 1 : 0
+                        border.color: Theme.focusBorderColor
+                    }
+                }
+
+                TextField {
+                    id: editStudentClassField
+                    Layout.fillWidth: true
+                    placeholderText: "Grade"
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                    color: Theme.textColor
+                    background: Rectangle {
+                        radius: 10
+                        color: Theme.inputBgColor
+                        border.width: editStudentClassField.activeFocus ? 1 : 0
+                        border.color: Theme.focusBorderColor
+                    }
+                }
+
+                TextField {
+                    id: editStudentScoreField
+                    Layout.fillWidth: true
+                    placeholderText: "Score"
                     font.family: Theme.fontFamily
                     font.pixelSize: 16
                     color: Theme.textColor
@@ -698,20 +762,20 @@ Item {
                         bottom: -999999
                         top: 999999
                     }
-                    onAccepted: rosterPage.submitScoreEdit()
+                    onAccepted: rosterPage.submitStudentEdit()
                     background: Rectangle {
                         radius: 10
                         color: Theme.inputBgColor
-                        border.width: editScoreField.activeFocus ? 1 : 0
+                        border.width: editStudentScoreField.activeFocus ? 1 : 0
                         border.color: Theme.focusBorderColor
                     }
                 }
 
                 TextArea {
-                    id: reasonField
+                    id: editStudentReasonField
                     Layout.fillWidth: true
                     Layout.preferredHeight: 96
-                    placeholderText: "Reason"
+                    placeholderText: "Reason (optional)"
                     wrapMode: TextArea.Wrap
                     font.family: Theme.fontFamily
                     font.pixelSize: 16
@@ -719,15 +783,15 @@ Item {
                     background: Rectangle {
                         radius: 10
                         color: Theme.inputBgColor
-                        border.width: reasonField.activeFocus ? 1 : 0
+                        border.width: editStudentReasonField.activeFocus ? 1 : 0
                         border.color: Theme.focusBorderColor
                     }
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    visible: rosterPage.editScoreError.length > 0
-                    text: rosterPage.editScoreError
+                    visible: rosterPage.editStudentError.length > 0
+                    text: rosterPage.editStudentError
                     color: Theme.dangerColor
                     font.family: Theme.fontFamily
                     font.pixelSize: 14
@@ -738,21 +802,47 @@ Item {
                     Layout.fillWidth: true
                     spacing: 10
 
+                    Button {
+                        id: deleteStudentButton
+                        text: "Delete"
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 15
+                        onClicked: rosterPage.deleteEditingStudent()
+
+                        contentItem: Text {
+                            text: deleteStudentButton.text
+                            color: Theme.dangerColor
+                            font: deleteStudentButton.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        background: Rectangle {
+                            radius: 10
+                            color: Theme.dangerSoftColor
+                        }
+
+                        leftPadding: 18
+                        rightPadding: 18
+                        topPadding: 11
+                        bottomPadding: 11
+                    }
+
                     Item {
                         Layout.fillWidth: true
                     }
 
                     Button {
-                        id: cancelScoreButton
+                        id: cancelEditButton
                         text: "Cancel"
                         font.family: Theme.fontFamily
                         font.pixelSize: 15
-                        onClicked: scoreEditPopup.close()
+                        onClicked: studentEditPopup.close()
 
                         contentItem: Text {
-                            text: cancelScoreButton.text
+                            text: cancelEditButton.text
                             color: Theme.mutedButtonTextColor
-                            font: cancelScoreButton.font
+                            font: cancelEditButton.font
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -768,17 +858,17 @@ Item {
                         bottomPadding: 11
                     }
 
-                Button {
-                    id: confirmScoreButton
-                    text: "Apply"
+                    Button {
+                        id: confirmEditButton
+                        text: "Save"
                         font.family: Theme.fontFamily
                         font.pixelSize: 15
-                        onClicked: rosterPage.submitScoreEdit()
+                        onClicked: rosterPage.submitStudentEdit()
 
                         contentItem: Text {
-                            text: confirmScoreButton.text
+                            text: confirmEditButton.text
                             color: Theme.buttonTextColor
-                            font: confirmScoreButton.font
+                            font: confirmEditButton.font
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }

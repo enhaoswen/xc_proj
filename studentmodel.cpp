@@ -14,6 +14,16 @@ int compareStudentIdentity(const StudentRecord &left, const StudentRecord &right
 
     return QString::compare(left.studentId, right.studentId, Qt::CaseInsensitive);
 }
+
+int compareStudentClass(const StudentRecord &left, const StudentRecord &right)
+{
+    const int classCompare = QString::compare(left.className, right.className, Qt::CaseInsensitive);
+    if (classCompare != 0) {
+        return classCompare;
+    }
+
+    return compareStudentIdentity(left, right);
+}
 }
 
 StudentModel::StudentModel(QObject *parent)
@@ -145,6 +155,90 @@ bool StudentModel::addStudent(const QString &name,
     return true;
 }
 
+bool StudentModel::updateStudent(int row,
+                                 const QString &name,
+                                 const QString &className,
+                                 int score,
+                                 const QString &reason)
+{
+    if (row < 0 || row >= m_students.size()) {
+        setLastError(QStringLiteral("Unable to update the selected student."));
+        return false;
+    }
+
+    StudentRecord editedStudent = m_students.at(row);
+    const StudentRecord oldStudent = editedStudent;
+    editedStudent.name = name.trimmed();
+    editedStudent.className = className.trimmed();
+    editedStudent.score = score;
+    editedStudent.scoreReason = reason.trimmed();
+
+    if (editedStudent.name.isEmpty() || editedStudent.className.isEmpty()) {
+        setLastError(QStringLiteral("Name and grade are required."));
+        return false;
+    }
+
+    if (oldStudent.name == editedStudent.name
+        && oldStudent.className == editedStudent.className
+        && oldStudent.score == editedStudent.score
+        && oldStudent.scoreReason == editedStudent.scoreReason) {
+        setLastError(QString());
+        return true;
+    }
+
+    QVector<StudentRecord> nextStudents = m_students;
+    nextStudents[row] = editedStudent;
+    sortStudents(nextStudents);
+
+    if (!saveStudents(nextStudents)) {
+        return false;
+    }
+
+    if (oldStudent.score != editedStudent.score || oldStudent.scoreReason != editedStudent.scoreReason) {
+        StudentHistoryRecord history;
+        history.type = QStringLiteral("scoreChange");
+        history.studentName = editedStudent.name;
+        history.timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd hh:mm:ss"));
+        history.pointsDelta = editedStudent.score - oldStudent.score;
+        history.reason = editedStudent.scoreReason;
+        appendHistory(history);
+    }
+
+    beginResetModel();
+    m_students = nextStudents;
+    endResetModel();
+
+    setLastError(QString());
+    return true;
+}
+
+bool StudentModel::deleteStudent(int row)
+{
+    if (row < 0 || row >= m_students.size()) {
+        setLastError(QStringLiteral("Unable to delete the selected student."));
+        return false;
+    }
+
+    QVector<StudentRecord> nextStudents = m_students;
+    nextStudents.removeAt(row);
+
+    if (!saveStudents(nextStudents)) {
+        return false;
+    }
+
+    const int oldTotalCount = totalCount();
+    beginResetModel();
+    m_students = nextStudents;
+    endResetModel();
+
+    if (oldTotalCount != totalCount()) {
+        emit totalCountChanged();
+    }
+
+    setLastError(QString());
+    return true;
+}
+
 bool StudentModel::updateScore(int row, int score, const QString &reason)
 {
     if (row < 0 || row >= m_students.size()) {
@@ -242,6 +336,10 @@ void StudentModel::sortStudents(QVector<StudentRecord> &students) const
             return compareStudentIdentity(left, right) < 0;
         case NameDescending:
             return compareStudentIdentity(left, right) > 0;
+        case ClassAscending:
+            return compareStudentClass(left, right) < 0;
+        case ClassDescending:
+            return compareStudentClass(left, right) > 0;
         case ScoreAscending:
             if (left.score != right.score) {
                 return left.score < right.score;
